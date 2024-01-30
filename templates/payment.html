@@ -1,0 +1,193 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Payment portal</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: larger;
+            height: 100vh;
+        }
+
+        .payment-container {
+            text-align: center;
+        }
+
+        h1 {
+            color: #3498db;
+        }
+
+        #rzp-button1 {
+            background-color: #3498db;
+            color: #fff;
+            padding: 15px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+            box-shadow: 0 4px 8px rgba(52, 152, 219, 0.2);
+            box-shadow: rgba(0, 0, 0, 0.3) 0px 19px 38px, rgba(0, 0, 0, 0.22) 0px 15px 12px;
+        }
+
+        #rzp-button1:hover {
+            background-color: #2980b9;
+            transform: scale(1.05);
+        }
+
+        #rzp-button1:active {
+            background-color: #216a94;
+        }
+    </style>
+</head>
+
+<body>
+
+
+    <div class="payment-container">
+        <h1>Welcome to Tarun's Briyani Paradise </h1>
+        <h3>Payment Portal for {{user_name}} of total: {{amount/100}}</h3>
+        <button id="rzp-button1">Pay with Razorpay</button>
+    </div>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script>
+
+        // to handle the server callback
+        var res = {}
+        var item_id = "{{orderid}}"
+        var payment_method = "{{payment_method}}"
+        console.log(item_id, payment_method);
+
+        var options = {
+            "key": "rzp_test_AZ9LyozDGv5aSK", // Enter the Key ID generated from the Dashboard
+            "amount": "{{amount}}", // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
+            "currency": "INR",
+            "name": "Tarun's Briyani Paradise",
+            "description": "Test Transaction",
+            "image": "https://example.com/your_logo",
+            "order_id": "{{payment['id']}}", //This is a sample Order ID. Pass the `id` obtained in the response of Step 1
+            "handler": function (response) {
+                alert(response.razorpay_payment_id);
+                alert(response.razorpay_order_id);
+                alert(response.razorpay_signature)
+
+                res = {
+                    'item_id': item_id + '',
+                    'payment_method': payment_method,
+                    'order_id': response.razorpay_order_id,
+                    'payment_id': response.razorpay_payment_id,
+                    'signature': response.razorpay_signature
+                }
+
+                successful_paymentid(res);
+            },
+            "notes": {
+                "address": "Razorpay Corporate Office"
+            },
+            "theme": {
+                "color": "#5699cc"
+            }
+        };
+        var rzp1 = new Razorpay(options);
+        rzp1.on('payment.failed', function (response) {
+            alert(response.error.code);
+            alert(response.error.description);
+            alert(response.error.source);
+            alert(response.error.step);
+            alert(response.error.reason);
+            alert(response.error.metadata.order_id);
+            alert(response.error.metadata.payment_id);
+        });
+        document.getElementById('rzp-button1').onclick = function (e) {
+            rzp1.open();
+            e.preventDefault();
+        }
+
+        function successful_paymentid(payment_reciept) {
+            console.log(payment_reciept);
+            sendDataToPythonServer(payment_reciept);
+        }
+
+        function sendDataToPythonServer(payment_reciept) {
+            const jsonData = {
+                key1: "value1",
+                key2: "value2",
+                // Add more key-value pairs as needed
+            };
+
+            // Make a POST request to the Python API
+            fetch('http://localhost:8000/api/endpoint', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payment_reciept),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Response from server:', data);
+                    if (data.message === "JSON data received successfully and updated successfully") {
+                        redirectToSuccessfulPage()
+                    }
+                    else {
+                        redirectToFailurePage()
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function redirectToSuccessfulPage() {
+            // Example data to send to FastAPI
+            var dataToSend = { 'key': 'value' };
+
+            // Fetch API to make a GET request to FastAPI route
+            fetch('http://localhost:8000/api/successfulendpoint', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+
+            })
+                .then(response => response.text())
+                .then(data => {
+                    document.body.innerHTML = data;  // Replace the entire body with the response
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        };
+
+        function redirectToFailurePage() {
+            // Example data to send to FastAPI
+            var dataToSend = { 'key': 'value' };
+
+            // Fetch API to make a GET request to FastAPI route
+            fetch('http://localhost:8000/api/failurendpoint', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+
+            })
+                .then(response => response.text())
+                .then(data => {
+                    document.body.innerHTML = data;  // Replace the entire body with the response
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        };
+    </script>
+</body>
+
+</html>
